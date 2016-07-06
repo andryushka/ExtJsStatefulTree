@@ -1,3 +1,8 @@
+=========
+# get("id") instead getId() (i need this)
+# refactoring: remove extra loop in getState(), remove checking stateful property and other
+# tested with ExtJs 6
+
 Plugin for Sencha ExtJS 5.1 for saving Ext.tree.Panel (treepanel) folders collapsed / expanded state.
 
 How to use:
