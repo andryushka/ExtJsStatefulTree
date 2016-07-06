@@ -7,6 +7,16 @@
  * @version 1.0.0
  *
  * * Fork of TreeStateful plugin for ExtJs 4.1 by AlexTiTanium
+ * 
+ * Andrey Ilyukhin <ai@bocp.ru>:
+ * I need stateful-tree with m2m relations between nodes, so i make some changes in original code.
+ *
+ * Changes:
+ *  1. Removed checking stateful property, simply delete plugin from tree if you don't need stateful behaviour.
+ *  2. Removed extra loop in getState() method, we can make ids array in first loop.
+ *  3. Some minor changes and refactoring.
+ *
+ *  https://github.com/andryushka/ExtJsStatefulTree
  *
  * MIT LICENSE
  *
@@ -33,89 +43,59 @@
 Ext.define('Ext.ux.TreeStateful', {
   alias: 'plugin.treestateful',
 
-  extend: 'Ext.AbstractPlugin',
-  // add stateEvents and override TreeView methods
-  init: function(view) {
-    var me = this;
-    view.addStateEvents(['afteritemcollapse', 'afteritemexpand']);
+    extend: 'Ext.AbstractPlugin',
+    // add stateEvents and override TreeView methods
+    init: function(view) {
+        var me = this;
+        view.addStateEvents(['afteritemcollapse', 'afteritemexpand']);
 
-    view.getState = me.getState;
-    view.saveState = me.saveState;
-    if (view.getStore().isLoading()) {
-      // restore nodes after load
-      view.getStore().on("load", me.applyState, {
-        scope: view,
-        single: true
-      });
-    } else {
-      Ext.callback(me.applyState, view);
-    }
+        view.getState = me.getState;
+        view.saveState = me.saveState;
 
-  },
-
-  saveState: function() {
-    var me = this,
-      id = me.stateful && me.getStateId(),
-      state;
-
-    if (id) {
-      state = me.getState() || []; //pass along for custom interactions
-      Ext.state.Manager.set(id, state);
-    }
-  },
-
-  getState: function() {
-    var ids = [],
-      expanded = [];
-
-    this.getStore().getRoot().cascadeBy({
-      after: function(node) {
-        if (node.isExpanded()) {
-          expanded.push(node);
+        if (view.getStore().isLoading()) {
+            view.getStore().on("load", me.applyState, view);
+        } else { // не понятно зачем это нужно
+            Ext.callback(me.applyState, view);
         }
-      }
-    });
+    },
 
-    Ext.each(expanded, function(node) {
-      if (node.getId() == 'root') return;
-      ids.push(node.getId());
-    });
+    saveState: function() {
+        var me = this;
+        var stateId = me.getStateId();
 
-    if (ids.length == 0) {
-      ids = null;
-    }
-    return ids;
-  },
+        if (stateId) Ext.state.Manager.set(stateId, me.getState());
+    },
 
-  applyState: function(state) {
-    if (!this.cmp) {
-      return
-    } else {
-      var me = this,
-        id = me.cmp.stateful && me.cmp.getStateId(),
-        state,
-        store = me.cmp.store,
-        node;
+    getState: function() {
+        var ids = [];
 
-    }
-    // get id of saved nodes and expand it
-    if (id) {
-      state = Ext.state.Manager.get(id);
-
-      if (state) {
-        state = Ext.apply([], state);
-        Ext.each(state, function(id) {
-          node = store.getNodeById(id);
-
-          if (node) {
-            node.bubble(function(node) {
-              node.expand();
-            });
-          }
+        this.getStore().getRoot().cascadeBy({
+            after: function(node) {
+                if (node.isExpanded()) {
+                    if (node.getId() == 'root') return;
+                    ids.push(node.get("id")); // we use overridden getId() in model, direct access here
+                }
+            }
         });
-      }
+        return ids;
+    },
+
+    applyState: function(view) {
+        var me = this;
+        var stateId = this.getStateId();
+        var store = this.getStore();
+        var node;
+
+        if (stateId) {
+            state = Ext.state.Manager.get(stateId);
+            if (state) {
+                Ext.each(state, function(id) {
+                    node = store.getNodeById(id);
+                    if (node && !node.isExpanded()) {
+                        node.expand();
+                    }
+                });
+            }
+        }
     }
-
-  }
-
 });
